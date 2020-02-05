@@ -1,34 +1,32 @@
 const { GraphQLServer } = require('graphql-yoga')
+const { prisma } = require('./generated/prisma-client')
 
 const resolvers = {
     Query: { // root type
     info: () => `This is the API of a Hackernews Clone`, // root field
-    feed: () => links,
-    link: (parent, args) => links.find(link => link.id === args.id)
+    feed: (root, args, context, info) => context.prisma.links(),
+    link: (root, args, context, info) => context.prisma.link({id: args.id})
     },
     Mutation: {
-        post: (parent, args) => {
-            const link = {
-                id: `link-${idCount++}`,
-                description: args.description,
+        post: (root, args, context) => {
+            return context.prisma.createLink({
                 url: args.url,
-            }
-            links.push(link)
-            return link
+                description: args.description
+            })
         },
-        update: (parent, args) => {
-            let oldLink = links.find(link => link.id === args.id)
-            let updatedLink = {
-                ...oldLink,
-                ...args
-            }
-            links[links.indexOf(oldLink)] = updatedLink
-            return updatedLink
+        update: (root, args, context) => {
+            return context.prisma.updateLink({
+                data: {
+                    url: args.url,
+                    description: args.description
+                },
+                where: {
+                    id: args.id,
+                }
+            })
         },
-        delete: (parent, args) => {
-            let newLinks = links.filter(link => link.id !== args.id)
-            links = newLinks
-            return links
+        delete: (root, args, context) => {
+            return context.prisma.deleteLink({ id: args.id })
         }
 
     }
@@ -36,7 +34,8 @@ const resolvers = {
 
 const server = new GraphQLServer({
     typeDefs: './src/schema.graphql',
-    resolvers
+    resolvers,
+    context: { prisma }
 });
 
 server.start(() => console.log(`Server is running on http://localhost:4000`));
